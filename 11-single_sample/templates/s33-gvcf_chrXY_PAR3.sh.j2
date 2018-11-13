@@ -1,0 +1,128 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output }}
+# gpc-gr:meta:output = {{ output }}.tbi
+# gpc-gr:meta:output = {{ output }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load bcftools/1.6
+module load java/1.8.0_144 
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# script
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ output }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ output }}.temp"
+
+{% if sex == '1' %}
+# sample is male
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:60001-2699520\
+    -ploidy 2\
+    -o {{ output }}.temp/{{ tmmid }}.chrX_par1.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:2699521-88456801\
+    -ploidy 1\
+    -o {{ output }}.temp/{{ tmmid }}.chrX_core1.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:88456802-92375509\
+    -ploidy 2\
+    -o {{ output }}.temp/{{ tmmid }}.chrX_xtr.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:92375510-154931043\
+    -ploidy 1\
+    -o {{ output }}.temp/{{ tmmid }}.chrX_core2.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:154931044-155270560\
+    -ploidy 2\
+    -o {{ output }}.temp/{{ tmmid }}.chrX_par2.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L Y\
+    -ploidy 1\
+    -o {{ output }}.temp/{{ tmmid }}.chrY_core.g.vcf.gz\
+    --emitRefConfidence GVCF
+
+bcftools concat\
+    --threads $NSLOTS\
+    -Oz\
+    -o {{ output }}\
+    {{ output }}.temp/{{ tmmid }}.chrX_par1.g.vcf.gz\
+    {{ output }}.temp/{{ tmmid }}.chrX_core1.g.vcf.gz\
+    {{ output }}.temp/{{ tmmid }}.chrX_xtr.g.vcf.gz\
+    {{ output }}.temp/{{ tmmid }}.chrX_core2.g.vcf.gz\
+    {{ output }}.temp/{{ tmmid }}.chrX_par2.g.vcf.gz\
+    {{ output }}.temp/{{ tmmid }}.chrY_core.g.vcf.gz
+
+bcftools index\
+    --threads $NSLOTS\
+    --tbi\
+    {{ output }}
+
+{% else %}
+# sample is female
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta_par3 }}\
+    -I {{ source }}\
+    -L X:60001-155270560\
+    -ploidy 2\
+    -o {{ output }}\
+    --emitRefConfidence GVCF
+{% endif %}
+
+\rm -rf {{ output }}.temp
+

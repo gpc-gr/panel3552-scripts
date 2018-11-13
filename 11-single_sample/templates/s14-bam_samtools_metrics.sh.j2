@@ -1,0 +1,39 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 2 
+#$ -l s_vmem=4G,mem_req=4G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output_prefix }}.flagstat
+# gpc-gr:meta:output = {{ output_prefix }}.idxstats
+
+
+# ================================================================================
+# modules
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load samtools/1.6
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+samtools flagstat --threads $NSLOTS {{ source }} > {{ output_prefix }}.flagstat
+samtools idxstats {{ source }} > {{ output_prefix }}.idxstats
+

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project basedir="." default="build" name="DuplicatedReadRemover">
+    <property name="target" value="1.8"/>
+    <property name="source" value="1.8"/>
+    <property name="compiler" value="/usr/local/pkg/java/current8/bin/javac"/>
+    <property name="lib.dir" value="lib"/>
+    <target name="init">
+        <mkdir dir="bin"/>
+        <copy includeemptydirs="false" todir="bin">
+            <fileset dir="src">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+    <target depends="init" name="build">
+        <javac debug="true" destdir="bin" includeantruntime="false" source="${source}" target="${target}" executable="${compiler}" fork="yes" encoding="UTF-8">
+            <src path="src"/>
+            <classpath>
+                <pathelement path="${lib.dir}/sam-1.74.jar"/>
+            </classpath>
+        </javac>
+    </target>
+    <target depends="build" name="makejar">
+        <jar destfile="../jar_files/DuplicatedReadRemover.jar">
+            <manifest>
+                <attribute name="Main-Class" value="org.eclipse.jdt.internal.jarinjarloader.JarRsrcLoader"/>
+                <attribute name="Rsrc-Main-Class" value="org.analysis.DuplicatedReadRemover"/>
+                <attribute name="Class-Path" value="."/>
+                <attribute name="Rsrc-Class-Path" value="./ sam-1.74.jar"/>
+            </manifest>
+            <zipfileset src="${lib.dir}/jar-in-jar-loader.zip"/>
+            <fileset dir="bin"/>
+            <zipfileset dir="${lib.dir}" includes="sam-1.74.jar"/>
+        </jar>
+    </target>
+</project>

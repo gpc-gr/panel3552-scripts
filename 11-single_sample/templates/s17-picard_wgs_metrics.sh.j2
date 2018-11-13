@@ -1,0 +1,64 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 1
+#$ -l s_vmem=20G,mem_req=20G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output_prefix }}_autosome
+# gpc-gr:meta:output = {{ output_prefix }}_chrX
+# gpc-gr:meta:output = {{ output_prefix }}_chrY
+# gpc-gr:meta:output = {{ output_prefix }}.s17.picard_wgs_metrics.temp
+
+
+# ================================================================================
+# modules
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load ibm-java/8.0.5.1 
+module load picard/2.10.6
+module load samtools/1.6
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+mkdir -p {{ output_prefix }}.s17.picard_wgs_metrics.temp
+
+java -Xmx12G -jar $PICARD_JAR CollectWgsMetrics\
+    INPUT={{ source }}\
+    OUTPUT={{ output_prefix }}_autosome\
+    REFERENCE_SEQUENCE={{ reference_fasta }}\
+    INTERVALS={{ reference_fasta }}.autosome.interval_list\
+    TMP_DIR={{ output_prefix }}.s17.picard_wgs_metrics.temp
+
+java -Xmx12G -jar $PICARD_JAR CollectWgsMetrics\
+    INPUT={{ source }}\
+    OUTPUT={{ output_prefix }}_chrX\
+    REFERENCE_SEQUENCE={{ reference_fasta }}\
+    INTERVALS={{ reference_fasta }}.chrX.interval_list\
+    TMP_DIR={{ output_prefix }}.s17.picard_wgs_metrics.temp
+
+java -Xmx12G -jar $PICARD_JAR CollectWgsMetrics\
+    INPUT={{ source }}\
+    OUTPUT={{ output_prefix }}_chrY\
+    REFERENCE_SEQUENCE={{ reference_fasta }}\
+    INTERVALS={{ reference_fasta }}.chrY.interval_list\
+    TMP_DIR={{ output_prefix }}.s17.picard_wgs_metrics.temp
+
+\rm -rf {{ output_prefix }}.s17.picard_wgs_metrics.temp
+

@@ -1,0 +1,54 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 1
+#$ -l s_vmem=32G,mem_req=32G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output_prefix }}
+# gpc-gr:meta:output = {{ output_prefix }}.s25.bqsr_bam_metrics.temp
+
+
+# ================================================================================
+# modules
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load ibm-java/8.0.5.1
+module load picard/2.10.6
+module load r/3.3.1
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+java -Xmx16G -jar $PICARD_JAR CollectMultipleMetrics\
+    INPUT={{ source }}\
+    OUTPUT={{ output_prefix }}\
+    REFERENCE_SEQUENCE={{ reference_fasta }}\
+    PROGRAM=null\
+    PROGRAM=CollectAlignmentSummaryMetrics\
+    PROGRAM=CollectInsertSizeMetrics\
+    PROGRAM=QualityScoreDistribution\
+    PROGRAM=MeanQualityByCycle\
+    PROGRAM=CollectBaseDistributionByCycle\
+    PROGRAM=CollectGcBiasMetrics\
+    PROGRAM=CollectSequencingArtifactMetrics\
+    TMP_DIR={{ output_prefix }}.s25.bqsr_bam_metrics.temp
+
+\rm -rf {{ output_prefix }}.s25.bqsr_bam_metrics.temp
+

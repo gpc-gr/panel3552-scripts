@@ -1,0 +1,49 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 1
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ before_table }}
+# gpc-gr:meta:input = {{ after_table }}
+# gpc-gr:meta:output = {{ plot }}
+# gpc-gr:meta:output = {{ plot }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load java/1.8.0_144
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# script
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ plot }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ plot }}.temp"
+
+java -Xmx3G -jar $GATK_JAR -T AnalyzeCovariates\
+    -R {{ reference_fasta }}\
+    -before {{ before_table }}\
+    -after {{ after_table }}\
+    -plots {{ plot }}
+
+\rm -rf {{ plot }}.temp
+

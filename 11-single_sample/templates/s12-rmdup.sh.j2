@@ -1,0 +1,54 @@
+#!/bin/bash
+#$ -N {{ script_name }} 
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 2
+#$ -l s_vmem=32G,mem_req=32G
+#$ -hold_jid {{ prev_script_names[0] }},{{ prev_script_names[1] }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source1 }}
+# gpc-gr:meta:input = {{ source2 }}
+# gpc-gr:meta:output = {{ output }}.s12.rmdup.temp
+# gpc-gr:meta:output = {{ output }}
+# gpc-gr:meta:output = {{ output|replace('.bam', '.bai') }}
+# gpc-gr:meta:output = {{ metrics_output }}
+
+
+# ================================================================================
+# modules
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load ibm-java/8.0.5.1 
+module load picard/2.10.6
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+java -Xmx48G -jar $PICARD_JAR MarkDuplicates\
+    INPUT={{ source1 }}\
+    INPUT={{ source2 }}\
+    OUTPUT={{ output }}\
+    METRICS_FILE={{ metrics_output }}\
+    TMP_DIR={{ output }}.s12.rmdup.temp\
+    COMPRESSION_LEVEL=9\
+    CREATE_INDEX=true\
+    ASSUME_SORTED=true\
+    REMOVE_DUPLICATES=true\
+    VALIDATION_STRINGENCY=LENIENT
+
+\rm -rf {{ output }}.s12.rmdup.temp
+

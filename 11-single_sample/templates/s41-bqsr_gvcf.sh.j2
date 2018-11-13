@@ -1,0 +1,51 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -soft -l sjob
+#$ -hold_jid {{ prev_script_name }}
+
+{% include 's00-common_pre.sh.j2' %}
+
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output }}
+# gpc-gr:meta:output = {{ output }}.tbi
+# gpc-gr:meta:output = {{ output }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load java/1.8.0_144 
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ output }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ output }}.temp"
+
+java -Xmx98G -jar $GATK_JAR -T HaplotypeCaller\
+    -nct $NSLOTS\
+    -R {{ reference_fasta }}\
+    -I {{ source }}\
+    -o {{ output }}\
+    --emitRefConfidence GVCF
+
+\rm -rf {{ output }}.temp
+

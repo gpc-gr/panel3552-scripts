@@ -1,0 +1,98 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }}
+#$ -j y
+#$ -o {{ root }}/02-merge/logs
+#$ -pe def_slot 20 
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -soft -l sjob
+#$ -hold_jid {{ prev_script_name }}
+
+# ================================================================================
+# error handling
+# ================================================================================
+
+set -eu
+
+trap 'exit 100' ERR
+trap 'exit 100' SIGXCPU
+
+
+# ================================================================================
+# environment
+# ================================================================================
+
+export LC_ALL=C
+
+echo "# SGE_CLUSTER_NAME=${SGE_CLUSTER_NAME}" >&2
+echo "# SGE_JOB_SPOOL_DIR=${SGE_JOB_SPOOL_DIR}" >&2
+
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:output = {{ output }}
+# gpc-gr:meta:output = {{ output }}.tbi
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load bcftools/1.6
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+/u4/share1/home/gpc-gr/panel-build37/work/12-joint/scripts/x-concat_chunks.py {{ sources }}\
+    | bcftools view --no-version --threads $NSLOTS -Oz -o {{ output }}
+
+bcftools index --threads $NSLOTS --tbi {{ output }}
+
+bcftools stats\
+    --threads $NSLOTS\
+    -S <(bcftools query -l {{ output }})\
+    {{ output }}\
+    > {{ output }}.stats
+
+{% if region == 'X' %}
+par1=X:60001-2699520
+par2=X:154931044-155260560
+xtr=X:88456802-92375509
+
+bcftools stats\
+    --threads $NSLOTS\
+    -S <(bcftools query -l {{ output }})\
+    -t "$par1"\
+    {{ output }}\
+    > {{ output }}.stats_PAR1
+
+bcftools stats\
+    --threads $NSLOTS\
+    -S <(bcftools query -l {{ output }})\
+    -t "$par2"\
+    {{ output }}\
+    > {{ output }}.stats_PAR2
+
+bcftools stats\
+    --threads $NSLOTS\
+    -S <(bcftools query -l {{ output }})\
+    -t "$xtr"\
+    {{ output }}\
+    > {{ output }}.stats_XTR
+
+bcftools stats\
+    --threads $NSLOTS\
+    -S <(bcftools query -l {{ output }})\
+    -t "^$par1,$par2,$xtr"\
+    {{ output }}\
+    > {{ output }}.stats_CORE
+{% endif %}
+

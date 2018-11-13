@@ -1,0 +1,39 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 4 
+#$ -l s_vmem=4G,mem_req=4G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ source }}
+# gpc-gr:meta:output = {{ output }}
+
+
+# ================================================================================
+# modules
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load pigz/2.3.4
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+/home/gpc-gr/panel-build37/work/11-single_sample/scripts/x-filter_xy_unmapped_reads.py {{ source }} --threads $NSLOTS\
+    | pigz -p 2 --stdout\
+    > {{ output }}
+

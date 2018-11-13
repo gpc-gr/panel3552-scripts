@@ -1,0 +1,86 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }}
+#$ -j y
+#$ -o {{ root }}/03-vqsr/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G,h=!ic-cd2083
+#$ -soft -l sjob
+{% for prev_script_name in prev_script_names %}#$ -hold_jid {{ prev_script_name }}
+{% endfor %}
+
+# ================================================================================
+# error handling
+# ================================================================================
+
+set -eu
+
+trap 'exit 100' ERR
+trap 'exit 100' SIGXCPU
+
+
+# ================================================================================
+# environment
+# ================================================================================
+
+export LC_ALL=C
+
+echo "# SGE_CLUSTER_NAME=${SGE_CLUSTER_NAME}" >&2
+echo "# SGE_JOB_SPOOL_DIR=${SGE_JOB_SPOOL_DIR}" >&2
+
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:source = {{ source_vcf }}
+# gpc-gr:meta:output = {{ output_vcf }}
+# gpc-gr:meta:output = {{ output_vcf }}.vqsr_snv_only.vcf.gz
+# gpc-gr:meta:output = {{ output_vcf }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load java/1.8.0_144
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ output_vcf }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ output_vcf }}.temp"
+
+java -Xmx98G -jar $GATK_JAR -T ApplyRecalibration\
+    -nt 18\
+    -R {{ reference_fasta }}\
+    -L {{ region }}\
+    -input {{ source_vcf }}\
+    -recalFile {{ snv_recal }}\
+    -tranchesFile {{ snv_tranches }}\
+    -ts_filter_level {{ snv_filter_level }}\
+    -mode SNP\
+    -o {{ output_vcf }}.vqsr_snv_only.vcf.gz
+
+java -Xmx98G -jar $GATK_JAR -T ApplyRecalibration\
+    -nt 18\
+    -R -R {{ reference_fasta }}\
+    -L {{ region }}\
+    -input {{ output_vcf }}.vqsr_snv_only.vcf.gz\
+    -recalFile {{ indel_recal }}\
+    -tranchesFile {{ indel_tranches }}\
+    -ts_filter_level {{ indel_filter_level }}\
+    -mode INDEL\
+    -o {{ output_vcf }}
+
+\rm {{ output_vcf }}.vqsr_snv_only.vcf.gz
+\rm {{ output_vcf }}.vqsr_snv_only.vcf.gz.tbi
+\rm -rf {{ output_vcf }}.temp
+

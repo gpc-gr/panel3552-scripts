@@ -1,0 +1,53 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -hold_jid {{ prev_script_name }}
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ bam }}
+# gpc-gr:meta:input = {{ before_table }}
+# gpc-gr:meta:output = {{ after_table }}
+# gpc-gr:meta:output = {{ after_table }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load java/1.8.0_144
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ after_table }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ after_table }}.temp"
+
+java -Xmx98G -jar $GATK_JAR -T BaseRecalibrator\
+    -nct $NSLOTS\
+    -R {{ reference_fasta }}\
+    -I {{ bam }}\
+    -o {{ after_table }}\
+    -BQSR {{ before_table }}\
+    -knownSites {{ dbsnp }}\
+    -knownSites {{ mills_indel }}\
+    -knownSites {{ onek_indel }}
+
+\rm -rf {{ after_table }}.temp
+

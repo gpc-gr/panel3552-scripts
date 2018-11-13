@@ -1,0 +1,75 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }}
+#$ -j y
+#$ -o {{ root }}/02-merge/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G,h=!ic-cd2083
+#$ -soft -l sjob
+#$ -hold_jid {{ prev_script_name }}
+
+# ================================================================================
+# error handling
+# ================================================================================
+
+set -eu
+
+trap 'exit 100' ERR
+trap 'exit 100' SIGXCPU
+
+
+# ================================================================================
+# environment
+# ================================================================================
+
+export LC_ALL=C
+
+echo "# SGE_CLUSTER_NAME=${SGE_CLUSTER_NAME}" >&2
+echo "# SGE_JOB_SPOOL_DIR=${SGE_JOB_SPOOL_DIR}" >&2
+
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:source = {{ source }}
+# gpc-gr:meta:output = {{ output }}
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load annovar/2017Jul17
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+mkdir -p {{ output }}.temp
+
+convert2annovar.pl\
+    -format vcf4\
+    {{ source }}\
+> {{ output }}.temp/$(basename {{ source }}).avinput
+
+table_annovar.pl\
+    {{ output }}.temp/$(basename {{ source }}).avinput\
+    /u3/share1/home/motoike/local/share/annovar_2017Jul16/humandb\
+    -buildver hg19\
+    -out {{ output }}.temp/$(basename {{ source }})\
+    -thread 20\
+    -remove\
+    -protocol avsnp150,refGene,popfreq_max_20150413,gnomad_genome,cadd13gt10,clinvar_20170130,genomicSuperDups,gwasCatalog\
+    -operation f,g,f,f,f,f,r,r\
+    -nastring .
+
+gzip -c {{ output }}.temp/$(basename {{ source }}).hg19_multianno.txt > {{ output }}
+
+\rm -rf {{ output }}.temp
+

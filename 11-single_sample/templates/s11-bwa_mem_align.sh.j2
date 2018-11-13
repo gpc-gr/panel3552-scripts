@@ -1,0 +1,54 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -soft -l sjob
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ fastq_r1 }}
+# gpc-gr:meta:input = {{ fastq_r2 }}
+# gpc-gr:meta:output = {{ output }}.s11.bwa_mem_align.temp
+# gpc-gr:meta:output = {{ output }}
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load bwa/0.7.12
+module load java/1.8.0_144
+module load picard/2.10.6
+
+
+# ================================================================================
+# job 
+# ================================================================================
+
+cd {{ root }}
+
+bwa mem\
+    -t 18\
+    -K 10000000\
+    -R '@RG\tID:{{ fastq_prefix }}\tPL:ILLUMINA\tPU:{{ fastq_prefix }}\tLB:ToMMo\tSM:{{ tmmid }}'\
+    {{ reference_fasta }}\
+    {{ fastq_r1 }}\
+    {{ fastq_r2 }}\
+| java -jar $PICARD_JAR SortSam\
+    INPUT=/dev/stdin\
+    OUTPUT={{ output }}\
+    TMP_DIR={{ output }}.s11.bwa_mem_align.temp\
+    SORT_ORDER=coordinate\
+    COMPRESSION_LEVEL=1
+
+\rm -rf {{ output }}.s11.bwa_mem_align.temp
+

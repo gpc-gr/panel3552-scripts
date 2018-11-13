@@ -1,0 +1,80 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }}
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20 
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -soft -l sjob
+
+# ================================================================================
+# error handling
+# ================================================================================
+
+set -eu
+
+trap 'exit 100' ERR
+trap 'exit 100' SIGXCPU
+
+
+# ================================================================================
+# environment
+# ================================================================================
+
+export LC_ALL=C
+
+echo "# SGE_CLUSTER_NAME=${SGE_CLUSTER_NAME}" >&2
+echo "# SGE_JOB_SPOOL_DIR=${SGE_JOB_SPOOL_DIR}" >&2
+
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:output = {{ output }}
+# gpc-gr:meta:output = {{ output }}.tbi
+# gpc-gr:meta:output = {{ output }}.temp
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load java/1.8.0_144 
+module load gatk/3.7.0-gcfedb67
+
+
+# ================================================================================
+# job
+# ================================================================================
+
+cd {{ root }}
+
+# step0: creates temporary directory
+mkdir -p {{ output }}.temp
+export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir={{ output }}.temp"
+
+# step1: combine multiple GVCFs into a single GVCF
+java -Xmx100G -jar $GATK_JAR -T CombineGVCFs\
+    -R {{ reference_fasta }}\
+    -L {{ region }}\
+    --interval_padding {{ padding * 2 }}\{% for gvcf in gvcfs %}
+    --variant {{ gvcf }}\{% endfor %}
+    -o {{ output|replace('.vcf.gz', '.g.vcf.gz') }}
+
+# step2: perform joint genotyping
+java -Xmx100G -jar $GATK_JAR -T GenotypeGVCFs\
+    -nt 16\
+    -R {{ reference_fasta }}\
+    -L {{ region }}\
+    --interval_padding {{ padding }}\
+    --variant {{ output|replace('.vcf.gz', '.g.vcf.gz') }}\
+    -o {{ output }}
+
+# step3: clean up temporary files
+\rm {{ output|replace('.vcf.gz', '.g.vcf.gz') }}
+\rm {{ output|replace('.vcf.gz', '.g.vcf.gz') }}.tbi
+\rm -rf {{ output }}.temp
+

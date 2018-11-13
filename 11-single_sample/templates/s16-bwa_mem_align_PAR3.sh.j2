@@ -1,0 +1,68 @@
+#!/bin/bash
+#$ -N {{ script_name }}
+#$ -S /bin/bash
+#$ -wd {{ root }} 
+#$ -j y
+#$ -o {{ root }}/logs
+#$ -pe def_slot 20
+#$ -l s_vmem=6.3G,mem_req=6.3G
+#$ -soft -l sjob
+#$ -hold_jid {{ prev_script_name }}
+
+{% include 's00-common_pre.sh.j2' %}
+
+# ================================================================================
+# meta
+# ================================================================================
+
+# gpc-gr:meta:input = {{ fastq_interleaved }}
+# gpc-gr:meta:output = {{ output }}.s16.bwa_mem_align_PAR3.temp
+# gpc-gr:meta:output = {{ output }}
+
+
+# ================================================================================
+# module
+# ================================================================================
+
+export MODULEPATH={{ module_path }}
+module load bwa/0.7.12
+module load picard/2.10.6
+
+
+# ================================================================================
+# job 
+# ================================================================================
+
+cd {{ root }}
+
+module load java/1.8.0_144
+bwa mem\
+    -t 18\
+    -K 10000000\
+    -R '@RG\tID:{{ tmmid }}_chrXY_PAR3\tPL:ILLUMINA\tPU:{{ tmmid }}_chrXY_PAR3\tLB:ToMMo\tSM:{{ tmmid }}'\
+    -p\
+    {{ reference_fasta_par3 }}\
+    {{ fastq_interleaved }}\
+| java -Xmx64G -jar $PICARD_JAR SortSam\
+    INPUT=/dev/stdin\
+    OUTPUT={{ output }}.s16.bwa_mem_align_PAR3.temp/{{ tmmid }}.chrXY_PAR3.bam\
+    TMP_DIR={{ output }}.s16.bwa_mem_align_PAR3.temp\
+    SORT_ORDER=coordinate\
+    COMPRESSION_LEVEL=1
+module unload java/1.8.0_144
+
+module load ibm-java/8.0.5.1
+java -Xmx98G -jar $PICARD_JAR MarkDuplicates\
+    INPUT={{ output }}.s16.bwa_mem_align_PAR3.temp/{{ tmmid }}.chrXY_PAR3.bam\
+    OUTPUT={{ output }}\
+    METRICS_FILE={{ metrics_output }}\
+    TMP_DIR={{ output }}.s16.bwa_mem_align_PAR3.temp\
+    COMPRESSION_LEVEL=9\
+    CREATE_INDEX=true\
+    ASSUME_SORTED=true\
+    REMOVE_DUPLICATES=true\
+    VALIDATION_STRINGENCY=LENIENT
+
+
+\rm -rf {{ output }}.s16.bwa_mem_align_PAR3.temp
+
